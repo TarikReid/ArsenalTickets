@@ -26,6 +26,8 @@
     statOpenRequests: document.getElementById("statOpenRequests"),
     statUsedSeason: document.getElementById("statUsedSeason"),
     statNext: document.getElementById("statNext"),
+    tallyCard: document.getElementById("tallyCard"),
+    tallyRow: document.getElementById("tallyRow"),
   };
 
   if (notConfigured) {
@@ -148,7 +150,28 @@
   // ---------- rendering ----------
   function render() {
     renderStats();
+    renderTally();
     renderMatchList();
+  }
+
+  function renderTally() {
+    if (!people.length) {
+      els.tallyCard.hidden = true;
+      return;
+    }
+    els.tallyCard.hidden = false;
+    els.tallyRow.innerHTML = people
+      .map((person) => {
+        const used = statuses
+          .filter((s) => s.person_id === person.id && s.used)
+          .reduce((sum, s) => sum + (s.requested_qty || 1), 0);
+        return `
+          <div class="tally-person">
+            <div class="n">${used}</div>
+            <div class="l">${escapeHtml(person.name)}</div>
+          </div>`;
+      })
+      .join("");
   }
 
   function renderStats() {
@@ -222,7 +245,15 @@
             <button class="mini-btn good" data-action="confirm-used" data-match="${m.id}" data-person="${person.id}">Confirm used</button>
             <button class="mini-btn ghost" data-action="cancel-request" data-match="${m.id}" data-person="${person.id}">Cancel</button>`;
         } else if (st.used) {
-          actions = `<button class="mini-btn ghost" data-action="undo-used" data-match="${m.id}" data-person="${person.id}">Undo</button>`;
+          actions = `
+            <div class="qty-stepper">
+              <button data-action="qty-dec" data-match="${m.id}" data-person="${person.id}" ${
+            (st.requested_qty || 1) <= 1 ? "disabled" : ""
+          }>–</button>
+              <span class="n">${st.requested_qty || 1}</span>
+              <button data-action="qty-inc" data-match="${m.id}" data-person="${person.id}">+</button>
+            </div>
+            <button class="mini-btn ghost" data-action="undo-used" data-match="${m.id}" data-person="${person.id}">Undo</button>`;
         }
 
         return `
@@ -254,8 +285,17 @@
             <button title="Delete" data-action="delete-match" data-match="${m.id}">🗑</button>
           </div>
         </div>
-        ${m.notes ? `<div class="notes">${escapeHtml(m.notes)}</div>` : ""}
         <div class="people-grid">${peopleRows}</div>
+        <div class="match-notes">
+          <label class="match-notes-label" for="notes-${m.id}">Notes</label>
+          <textarea
+            id="notes-${m.id}"
+            class="match-notes-input"
+            data-action="match-notes"
+            data-match="${m.id}"
+            placeholder="e.g. Barry couldn't make it, sold his ticket to Dave"
+          >${escapeHtml(m.notes || "")}</textarea>
+        </div>
       </div>`;
   }
 
@@ -273,6 +313,32 @@
     els.matchList.querySelectorAll("button[data-action]").forEach((btn) => {
       btn.addEventListener("click", onCardAction);
     });
+    els.matchList.querySelectorAll('textarea[data-action="match-notes"]').forEach((ta) => {
+      ta.addEventListener("blur", onMatchNotesBlur);
+      // Cmd/Ctrl+Enter saves and closes the keyboard without needing to tap away.
+      ta.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          ta.blur();
+        }
+      });
+    });
+  }
+
+  async function onMatchNotesBlur(e) {
+    const ta = e.currentTarget;
+    const matchId = Number(ta.dataset.match);
+    const notes = ta.value.trim();
+    const match = matches.find((m) => m.id === matchId);
+    if (!match || match.notes === notes) return; // unchanged, skip the write
+    const { error } = await supabase.from("matches").update({ notes }).eq("id", matchId);
+    if (error) {
+      console.error(error);
+      toast("Note failed to save — try again");
+      return;
+    }
+    match.notes = notes;
+    toast("Note saved");
   }
 
   async function onCardAction(e) {
