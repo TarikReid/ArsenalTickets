@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Arsenal Home Games — Ticket Tracker</title>
+
+<!-- Lets iPhones (and Android) run this full-screen from the home screen,
+     like a real app, once someone taps Share → Add to Home Screen. -->
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Arsenal Tickets" />
+<meta name="theme-color" content="#EF0107" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="brand-block">
+      <h1>🔴 Arsenal Home Games</h1>
+      <p>Tarik · Barry · Oliver <span style="opacity:.7">· Josh (spare ticket)</span></p>
+    </div>
+    <button class="icon-btn" id="themeToggle" title="Toggle dark mode">🌓</button>
+  </header>
+
+  <div id="setupBanner" class="setup-banner" hidden>
+    Not connected yet. Open <code>config.js</code> and paste in your Supabase
+    project URL and anon key (see the README) — then reload this page.
+  </div>
+
+  <div class="stat-row" id="statRow">
+    <div class="stat-tile"><div class="n" id="statUpcoming">–</div><div class="l">Upcoming games</div></div>
+    <div class="stat-tile"><div class="n" id="statOpenRequests">–</div><div class="l">Open requests</div></div>
+    <div class="stat-tile"><div class="n" id="statUsedSeason">–</div><div class="l">Tickets used</div></div>
+    <div class="stat-tile"><div class="n" id="statNext">–</div><div class="l">Next game</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs">
+      <button data-tab="upcoming" class="active">Upcoming</button>
+      <button data-tab="past">Past</button>
+      <button data-tab="all">All</button>
+    </div>
+    <button class="btn-primary" id="addMatchBtn">+ Add game</button>
+  </div>
+
+  <div class="match-list" id="matchList">
+    <div class="empty-state">Loading…</div>
+  </div>
+
+</div>
+
+<!-- Add / edit match modal -->
+<div class="overlay" id="matchOverlay" hidden>
+  <div class="modal">
+    <h2 id="matchModalTitle">Add a home game</h2>
+    <form id="matchForm">
+      <input type="hidden" id="matchId" />
+      <div class="field">
+        <label for="opponent">Opponent</label>
+        <input type="text" id="opponent" placeholder="e.g. Manchester City" required />
+      </div>
+      <div class="field">
+        <label for="competition">Competition</label>
+        <select id="competition">
+          <option>Premier League</option>
+          <option>Champions League</option>
+          <option>FA Cup</option>
+          <option>EFL Cup</option>
+          <option>Friendly</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="kickoffDate">Date</label>
+        <input type="date" id="kickoffDate" required />
+      </div>
+      <div class="field">
+        <label for="kickoffTime">Kick-off time (optional)</label>
+        <input type="time" id="kickoffTime" />
+      </div>
+      <div class="field">
+        <label for="notes">Notes</label>
+        <textarea id="notes" placeholder="Any notes about this game…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancelMatchBtn">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
