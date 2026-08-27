@@ -38,9 +38,13 @@ create table if not exists ticket_status (
   requested boolean not null default false,
   requested_qty int not null default 1,
   used boolean not null default false,
+  declined boolean not null default false, -- "can't make it" for this game
   updated_at timestamptz not null default now(),
   unique (match_id, person_id)
 );
+
+-- Safe to re-run against an already-created table from an earlier version of this schema.
+alter table ticket_status add column if not exists declined boolean not null default false;
 
 -- Row Level Security: this is a small trusted-friend-group app with no login,
 -- so we open read/write to anyone who has the anon key (which ships in the app).

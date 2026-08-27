@@ -88,7 +88,7 @@
   function statusFor(matchId, personId) {
     return (
       statuses.find((s) => s.match_id === matchId && s.person_id === personId) ||
-      { match_id: matchId, person_id: personId, requested: false, requested_qty: 1, used: false }
+      { match_id: matchId, person_id: personId, requested: false, requested_qty: 1, used: false, declined: false }
     );
   }
 
@@ -100,6 +100,7 @@
       requested: existing.requested,
       requested_qty: existing.requested_qty || 1,
       used: existing.used,
+      declined: existing.declined || false,
       ...patch,
       updated_at: new Date().toISOString(),
     };
@@ -225,14 +226,21 @@
         if (st.used) {
           pillClass = "used";
           pillLabel = "✓ Used";
+        } else if (st.declined) {
+          pillClass = "declined";
+          pillLabel = "Can't make it";
         } else if (st.requested) {
           pillClass = "requested";
           pillLabel = "Requested";
         }
 
         let actions = "";
-        if (!st.requested && !st.used) {
-          actions = `<button class="mini-btn primary" data-action="request" data-match="${m.id}" data-person="${person.id}">Request ticket</button>`;
+        if (st.declined) {
+          actions = `<button class="mini-btn ghost" data-action="undo-decline" data-match="${m.id}" data-person="${person.id}">I can make it after all</button>`;
+        } else if (!st.requested && !st.used) {
+          actions = `
+            <button class="mini-btn primary" data-action="request" data-match="${m.id}" data-person="${person.id}">Request ticket</button>
+            <button class="mini-btn outline-critical" data-action="decline" data-match="${m.id}" data-person="${person.id}">Can't make it</button>`;
         } else if (st.requested && !st.used) {
           actions = `
             <div class="qty-stepper">
@@ -348,11 +356,21 @@
     const personId = btn.dataset.person ? Number(btn.dataset.person) : null;
 
     if (action === "request") {
-      await upsertStatus(matchId, personId, { requested: true, requested_qty: 1, used: false });
+      await upsertStatus(matchId, personId, { requested: true, requested_qty: 1, used: false, declined: false });
       toast("Ticket requested");
     } else if (action === "cancel-request") {
       await upsertStatus(matchId, personId, { requested: false, requested_qty: 1, used: false });
       toast("Request cancelled");
+    } else if (action === "decline") {
+      await upsertStatus(matchId, personId, {
+        declined: true,
+        requested: false,
+        requested_qty: 1,
+        used: false,
+      });
+      toast("Marked as can't make it");
+    } else if (action === "undo-decline") {
+      await upsertStatus(matchId, personId, { declined: false });
     } else if (action === "confirm-used") {
       await upsertStatus(matchId, personId, { used: true });
       toast("Marked as used ✓");
