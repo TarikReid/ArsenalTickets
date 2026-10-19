@@ -22,6 +22,8 @@
     cancelMatchBtn: document.getElementById("cancelMatchBtn"),
     toast: document.getElementById("toast"),
     themeToggle: document.getElementById("themeToggle"),
+    searchInput: document.getElementById("searchInput"),
+    searchClear: document.getElementById("searchClear"),
     statUpcoming: document.getElementById("statUpcoming"),
     statOpenRequests: document.getElementById("statOpenRequests"),
     statUsedSeason: document.getElementById("statUsedSeason"),
@@ -46,6 +48,7 @@
   let matches = [];
   let statuses = []; // ticket_status rows
   let activeTab = "upcoming";
+  let searchQuery = "";
   let toastTimer = null;
 
   // ---------- theme ----------
@@ -192,6 +195,12 @@
     }
   }
 
+  function matchesSearch(m) {
+    if (!searchQuery) return true;
+    const haystack = `${m.opponent} ${m.competition} ${m.notes || ""}`.toLowerCase();
+    return haystack.includes(searchQuery);
+  }
+
   function renderMatchList() {
     const now = new Date();
     let list = matches.slice().sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
@@ -201,18 +210,47 @@
       list = list.filter((m) => new Date(m.kickoff) < now).reverse();
     }
 
-    if (!list.length) {
+    const filtered = list.filter(matchesSearch);
+
+    if (!filtered.length) {
+      if (searchQuery) {
+        // Nothing in the current tab matched — if it exists in another tab,
+        // offer a one-tap way to widen the search instead of a dead end.
+        const existsElsewhere = activeTab !== "all" && matches.some(matchesSearch);
+        els.matchList.innerHTML = `
+          <div class="empty-state">
+            No games match “${escapeHtml(els.searchInput.value.trim())}”${
+          activeTab === "all" ? "" : ` in ${activeTab}`
+        }.
+            ${
+              existsElsewhere
+                ? `<br><button class="mini-btn outline-critical search-all-btn" id="searchAllBtn">Search all games instead</button>`
+                : ""
+            }
+          </div>`;
+        const searchAllBtn = document.getElementById("searchAllBtn");
+        if (searchAllBtn) {
+          searchAllBtn.addEventListener("click", () => {
+            activeTab = "all";
+            els.tabs
+              .querySelectorAll("button")
+              .forEach((b) => b.classList.toggle("active", b.dataset.tab === "all"));
+            renderMatchList();
+          });
+        }
+        return;
+      }
       els.matchList.innerHTML = `<div class="empty-state">No ${
         activeTab === "all" ? "" : activeTab
       } games yet. Tap “+ Add game” to add one.</div>`;
       return;
     }
 
-    els.matchList.innerHTML = list.map((m) => matchCardHtml(m, now)).join("");
+    els.matchList.innerHTML = filtered.map((m) => matchCardHtml(m, now, searchQuery)).join("");
     attachCardHandlers();
   }
 
-  function matchCardHtml(m, now) {
+  function matchCardHtml(m, now, query) {
     const d = new Date(m.kickoff);
     const isPast = d < now;
     const days = daysUntil(d);
@@ -281,9 +319,9 @@
       <div class="match-card" data-match-id="${m.id}">
         <div class="row-top">
           <div>
-            <h3>Arsenal vs ${escapeHtml(m.opponent)}</h3>
+            <h3>Arsenal vs ${highlightMatch(m.opponent, query)}</h3>
             <div class="match-meta">
-              <span class="badge">${escapeHtml(m.competition)}</span>
+              <span class="badge">${highlightMatch(m.competition, query)}</span>
               <span>${fmtDate(d)}${time ? " · " + time : ""}</span>
               <span class="badge ${isPast ? "past" : "countdown"}">${countdownLabel(days)}</span>
             </div>
@@ -315,6 +353,19 @@
       '"': "&quot;",
       "'": "&#39;",
     }[c]));
+  }
+
+  function escapeRegExp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  // Escapes first, then wraps the matched substring in <mark> — safe against
+  // the search query itself containing HTML-ish characters.
+  function highlightMatch(str, query) {
+    const safe = escapeHtml(str);
+    if (!query) return safe;
+    const re = new RegExp(escapeRegExp(escapeHtml(query)), "ig");
+    return safe.replace(re, (hit) => `<mark>${hit}</mark>`);
   }
 
   function attachCardHandlers() {
@@ -406,6 +457,32 @@
     activeTab = btn.dataset.tab;
     els.tabs.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
     renderMatchList();
+  });
+
+  // ---------- search ----------
+  function updateSearchClearVisibility() {
+    els.searchClear.hidden = !els.searchInput.value;
+  }
+  els.searchInput.addEventListener("input", () => {
+    searchQuery = els.searchInput.value.trim().toLowerCase();
+    updateSearchClearVisibility();
+    renderMatchList();
+  });
+  els.searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && els.searchInput.value) {
+      e.preventDefault();
+      els.searchInput.value = "";
+      searchQuery = "";
+      updateSearchClearVisibility();
+      renderMatchList();
+    }
+  });
+  els.searchClear.addEventListener("click", () => {
+    els.searchInput.value = "";
+    searchQuery = "";
+    updateSearchClearVisibility();
+    renderMatchList();
+    els.searchInput.focus();
   });
 
   // ---------- add / edit modal ----------

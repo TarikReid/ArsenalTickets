@@ -54,6 +54,18 @@
     <button class="btn-primary" id="addMatchBtn">+ Add game</button>
   </div>
 
+  <div class="search-bar">
+    <span class="search-icon" aria-hidden="true">🔎</span>
+    <input
+      type="search"
+      id="searchInput"
+      class="search-input"
+      placeholder="Search opponent, competition, notes…"
+      autocomplete="off"
+    />
+    <button class="search-clear" id="searchClear" title="Clear search" hidden>✕</button>
+  </div>
+
   <div class="match-list" id="matchList">
     <div class="empty-state">Loading…</div>
   </div>
